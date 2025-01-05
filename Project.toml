@@ -1,0 +1,4 @@
+name = "TruckReliability"
+uuid = "7e34bb2c-dd63-4f49-975e-2ede4fa7d074"
+authors = ["Drew Dolgert <adolgert@uw.edu>"]
+version = "0.1.0"
