@@ -40,6 +40,8 @@ end
 function truck_done(experiment, truck, sampler)
     truck.work_age += experiment.time - truck.transition_start
     truck.state = ready
+    disable!(sampler, (truck.id, :break), experiment.time)
+    individual.work_age += experiment.time - truck.transition_start
     tell_management(experiment.management, truck.idx, :done)
 end
 
