@@ -1,5 +1,7 @@
 module TruckReliability
 
-greet() = print("Hello World!")
+include("diracdist.jl")
+include("system.jl")
+include("trucks.jl")
 
 end # module TruckReliability
