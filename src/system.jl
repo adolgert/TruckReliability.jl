@@ -1,12 +1,8 @@
-
-function handle_event(when, fired_id, experiment, sampler)
-    disable!(sampler, fired_id, when)
-    fire!(when, fired_id, experiment, sampler)
-end
+using CompetingClocks
 
 
 function run(experiment::TruckExperiment, observation, days)
-    sampler = FirstToFire{key_type(experiment),Float64}()
+    sampler = SingleSampler{FirstToFire{key_type(experiment),Float64},Float64}()
     rng = experiment.rng
     when = zero(Float64)
     initial_events(experiment, sampler, when)
@@ -16,7 +12,7 @@ function run(experiment::TruckExperiment, observation, days)
         ## We use different observers to record the simulation.
         observe(experiment, observation, when, which)
         @debug "$when $which"
-        handle_event(when, which, experiment, sampler)
-        when, which = next(sampler, experiment.time, rng)
+        fire!(when, fired_id, experiment, sampler)
+        when, which = sample!(sampler, rng)
     end
 end

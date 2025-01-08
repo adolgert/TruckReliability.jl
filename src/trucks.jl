@@ -14,7 +14,6 @@ mutable struct Truck
     ## State for the individual
     state::IndividualState
     work_age::Float64 ## How an individual remembers its total work leading to breaks.
-    transition_start::Float64  ## This is bookkeeping.
     ## Parameters for the individual
     done_dist::LogUniform
     break_dist::LogNormal
@@ -30,18 +29,16 @@ function start_truck(experiment, truck::Truck, sampler)
     rng = experiment.rng
     truck.transition_start = now
     truck.state = working
-    enable!(sampler, (truck.id, :done), truck.done_dist, now, now, rng)
+    enable!(sampler, (truck.id, :done), truck.done_dist, rng)
     # The failure distribution has memory of being previously enabled.
-    past_work = now - individual.work_age
-    enable!(sampler, (truck.id, :break), truck.break_dist, past_work, now, rng)
+    enable!(sampler, (truck.id, :break), truck.break_dist, rng; memory=true)
 end
 
 
 function truck_done(experiment, truck, sampler)
     truck.work_age += experiment.time - truck.transition_start
     truck.state = ready
-    disable!(sampler, (truck.id, :break), experiment.time)
-    individual.work_age += experiment.time - truck.transition_start
+    disable!(sampler, (truck.id, :break))
     tell_management(experiment.management, truck.idx, :done)
 end
 
@@ -50,7 +47,7 @@ function truck_break(experiment, truck, sampler)
     now = experiment.time
     truck.work_age += now - truck.transition_start
     truck.state = broken
-    enable!(sampler, (truck.id, :repair), truck.done_dist, now, now, experiment.rng)
+    enable!(sampler, (truck.id, :repair), truck.done_dist, experiment.rng)
     tell_management(experiment.management, truck.idx, :break)
 end
 
@@ -72,6 +69,7 @@ end
 
 
 function next_work_time(now, work_day_fraction)
+    # The epsilon means that if you ask when is the next 8am at 8am, it answers tomorrow.
     epsilon = 0.01
     midnight = floor(now)
     day_fraction = now - midnight + epsilon
@@ -87,7 +85,7 @@ function start_tomorrow(management, experiment, sampler)
     now = experiment.time
     # Set up the event for tomorrow
     eightam = Dirac(next_work_time(now, work_day_fraction) - now)
-    enable!(sampler, (0, :work), eightam, now, now, experiment.rng)
+    enable!(sampler, (0, :work), eightam, experiment.rng)
 end
 
 
