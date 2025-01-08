@@ -15,21 +15,23 @@ end
 
 
 function enable!(
-    facade::SamplerFacade,
+    facade::SamplerFacade{SingleSampler},
     clock,
     distribution::UnivariateDistribution,
     rng::AbstractRNG;
     memory=false
     )
+    te = facade.sampler.when
     if memory
         track = get(facade.memorized, clock, MemoryTrack())
+        te -= track.consumed_duration
         facade.memorized[clock] = MemoryTrack(track.consumed_duration, facade.sampler.when)
     else
         if clock ∈ keys(facade.memorized)
             remove!(facade.memorized, clock)
         end
     end
-    return enable!(facade.sampler, clock, distribution, facade.sampler.when, rng)
+    return enable!(facade.sampler, clock, distribution, te, rng)
 end
 
 
