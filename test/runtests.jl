@@ -3,6 +3,6 @@ using SafeTestsets
 using Test
 
 
-# @testset "test_commonrandom.jl" begin
-#     include("test_commonrandom.jl")
-# end
+@testset "test_trucks.jl" begin
+    include("test_trucks.jl")
+end

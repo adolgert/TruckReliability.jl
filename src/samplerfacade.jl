@@ -1,4 +1,4 @@
-using CompetingClocks
+import CompetingClocks
 
 
 struct MemoryTrack
@@ -10,14 +10,15 @@ MemoryTrack() = MemoryTrack(zero(Float64), zero(Float64))
 
 struct SamplerFacade{S,key}
     sampler::S
-    memorized::Dict{key,Float64}
+    memorized::Dict{key,MemoryTrack}
+    SamplerFacade{S,key}(sampler) where {S,key} = new(sampler, Dict{key,MemoryTrack}())
 end
 
 
 function enable!(
-    facade::SamplerFacade{SingleSampler},
+    facade::SamplerFacade,
     clock,
-    distribution::UnivariateDistribution,
+    distribution,
     rng::AbstractRNG;
     memory=false
     )
@@ -28,27 +29,27 @@ function enable!(
         facade.memorized[clock] = MemoryTrack(track.consumed_duration, facade.sampler.when)
     else
         if clock ∈ keys(facade.memorized)
-            remove!(facade.memorized, clock)
+            delete!(facade.memorized, clock)
         end
     end
-    return enable!(facade.sampler, clock, distribution, te, rng)
+    return CompetingClocks.enable!(facade.sampler, clock, distribution, te, rng)
 end
 
 
 function disable!(facade::SamplerFacade, clock)
     if clock ∈ keys(facade.memorized)
         track = facade.memorized[clock]
-        consumed = track.consumed_duration + facade.sampler.now - track.last_started
+        consumed = track.consumed_duration + facade.sampler.when - track.last_started
         facade.memorized[clock] = MemoryTrack(consumed, Inf64)
     end
-    return disable!(facade.sampler.propagator, clock)
+    return CompetingClocks.disable!(facade.sampler, clock)
 end
 
 
 function sample!(facade::SamplerFacade, rng::AbstractRNG)
-    when, transition = sample!(facade.sampler, rng)
-    if transition ∈ keys(facade.memorized[clock])
-        remove!(facade.memorized, clock)
+    when, transition = CompetingClocks.sample!(facade.sampler, rng)
+    if transition ∈ keys(facade.memorized)
+        delete!(facade.memorized, transition)
     end
     return (when, transition)
 end
