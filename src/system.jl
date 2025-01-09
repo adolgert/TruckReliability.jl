@@ -1,22 +1,26 @@
+import CompetingClocks: FirstToFire, SingleSampler
 
-function handle_event(when, fired_id, experiment, sampler)
-    disable!(sampler, fired_id, when)
-    fire!(when, fired_id, experiment, sampler)
-end
+export run_experiment
+
+struct NullObserver end
+
+observe(experiment, observer::NullObserver, when, which) = nothing
 
 
-function run(experiment::TruckExperiment, observation, days)
-    sampler = FirstToFire{key_type(experiment),Float64}()
+function run_experiment(experiment, observation, days)
+    first_to_fire = FirstToFire{key_type(experiment),Float64}()
+    sampler = SingleSampler(first_to_fire)
+    facade = SamplerFacade{typeof(sampler),key_type(experiment)}(sampler)
     rng = experiment.rng
     when = zero(Float64)
-    initial_events(experiment, sampler, when)
+    initial_events(experiment, facade, when)
 
-    when, which = next(sampler, experiment.time, rng)
+    when, which = sample!(facade, rng)
     while isfinite(when) && when < days
         ## We use different observers to record the simulation.
         observe(experiment, observation, when, which)
         @debug "$when $which"
-        handle_event(when, which, experiment, sampler)
-        when, which = next(sampler, experiment.time, rng)
+        fire!(when, which, experiment, facade)
+        when, which = sample!(facade, rng)
     end
 end
