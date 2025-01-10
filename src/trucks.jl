@@ -30,30 +30,33 @@ function start_truck(experiment, truck::Truck, sampler)
     rng = experiment.rng
     truck.state = working
     # Start the :done and :break transitions at the same time.
-    enable!(sampler, (truck.idx, :done), truck.done_dist, rng)
+    enable!(sampler, (truck_done, truck.idx), truck.done_dist, rng)
     # The failure distribution has memory of being previously enabled.
-    enable!(sampler, (truck.idx, :break), truck.break_dist, rng; memory=true)
+    enable!(sampler, (truck_break, truck.idx), truck.break_dist, rng; memory=true)
 end
 
 
-function truck_done(experiment, truck, sampler)
+function truck_done(experiment, sampler, truck_idx)
+    truck = gettruck(experiment, truck_idx)
     truck.state = ready
     # If the truck is done, then it can't break.
-    disable!(sampler, (truck.idx, :break))
+    disable!(sampler, (truck_break, truck.idx))
     tell_management(experiment.management, truck.idx, :done)
 end
 
 
-function truck_break(experiment, truck, sampler)
+function truck_break(experiment, sampler, truck_idx)
+    truck = gettruck(experiment, truck_idx)
     truck.state = broken
     # If the truck :break-ed, then it can't become :done.
-    disable!(sampler, (truck.idx, :done))
-    enable!(sampler, (truck.idx, :repair), truck.done_dist, experiment.rng)
+    disable!(sampler, (truck_done, truck.idx))
+    enable!(sampler, (truck_repair, truck.idx), truck.done_dist, experiment.rng)
     tell_management(experiment.management, truck.idx, :break)
 end
 
 
-function truck_repair(experiment, truck, sampler)
+function truck_repair(experiment, sampler, truck_idx)
+    truck = gettruck(experiment, truck_idx)
     truck.state = ready
     tell_management(experiment.management, truck.idx, :repair)
 end
@@ -87,15 +90,17 @@ function start_tomorrow(management, experiment, sampler)
     now = current_time(sampler)
     # Set up the event for tomorrow
     eightam = Dirac(next_work_time(now, management.work_day_fraction) - now)
-    enable!(sampler, (0, :work), eightam, experiment.rng)
+    enable!(sampler, (start_the_day, 0), eightam, experiment.rng)
 end
 
 
-function start_the_day(management, experiment, sampler)
+function start_the_day(experiment, sampler, manager)
+    @assert manager == 0
+    management = experiment.management
     for truck_idx in shuffle(experiment.rng, Vector(1:management.total))
-        individual = truck(experiment, truck_idx)
+        individual = gettruck(experiment, truck_idx)
         if individual.state == ready
-            start_truck(experiment, truck(experiment, truck_idx), sampler)
+            start_truck(experiment, gettruck(experiment, truck_idx), sampler)
             management.in_the_field += 1
             if management.in_the_field == management.desired_working
                 break
@@ -144,28 +149,11 @@ function TruckExperiment(individual_cnt::Int, crew_size::Int, rng)
 end
 
 
-key_type(::TruckExperiment) = Tuple{Int,Symbol}
+key_type(::TruckExperiment) = Tuple{Function,Int64}
 worker_cnt(experiment::TruckExperiment) = size(experiment.group, 1);
-truck(experiment::TruckExperiment, idx) = experiment.group[idx]
+gettruck(experiment::TruckExperiment, idx) = experiment.group[idx]
 
 
-function initial_events(experiment::TruckExperiment, sampler, when)
-    start_the_day(experiment.management, experiment, sampler)
-end
-
-
-function fire!(when::Float64, transition_id, experiment::TruckExperiment, sampler)
-    who, transition_kind = transition_id
-    if who == 0
-        start_the_day(experiment.management, experiment, sampler)
-    else
-        individual = truck(experiment, who)
-        if transition_kind == :done
-            truck_done(experiment, individual, sampler)
-        elseif transition_kind == :break
-            truck_break(experiment, individual, sampler)
-        elseif transition_kind == :repair
-            truck_repair(experiment, individual, sampler)
-        end
-    end
+function initial_events(experiment::TruckExperiment, sampler)
+    start_the_day(experiment, sampler, 0)
 end
