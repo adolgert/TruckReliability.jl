@@ -15,6 +15,9 @@ struct SamplerFacade{S,key}
 end
 
 
+current_time(s::SamplerFacade) = s.sampler.when
+
+
 function enable!(
     facade::SamplerFacade,
     clock,

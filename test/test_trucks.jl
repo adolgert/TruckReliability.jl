@@ -13,4 +13,5 @@ using SafeTestsets
     day_cnt = 10
     observer = TruckReliability.NullObserver()
     run_experiment(experiment, observer, day_cnt)
+    @assert observer.called > 100
 end
