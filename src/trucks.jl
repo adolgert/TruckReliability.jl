@@ -27,7 +27,6 @@ end
 
 
 function start_truck(experiment, truck::Truck, sampler)
-    now = experiment.time
     rng = experiment.rng
     truck.state = working
     # Start the :done and :break transitions at the same time.
@@ -85,7 +84,7 @@ end
 
 
 function start_tomorrow(management, experiment, sampler)
-    now = experiment.time
+    now = current_time(sampler)
     # Set up the event for tomorrow
     eightam = Dirac(next_work_time(now, management.work_day_fraction) - now)
     enable!(sampler, (0, :work), eightam, experiment.rng)
@@ -93,7 +92,6 @@ end
 
 
 function start_the_day(management, experiment, sampler)
-    now = experiment.time
     for truck_idx in shuffle(experiment.rng, Vector(1:management.total))
         individual = truck(experiment, truck_idx)
         if individual.state == ready
@@ -124,12 +122,10 @@ end
 
 
 mutable struct TruckExperiment
-    time::Float64
     group::Vector{Truck}
     management::TruckingManagement
     rng::Xoshiro
     TruckExperiment(group::Vector, crew_size::Int, rng) = new(
-        0.0,
         group,
         TruckingManagement(crew_size, length(group)),
         rng
@@ -159,7 +155,6 @@ end
 
 
 function fire!(when::Float64, transition_id, experiment::TruckExperiment, sampler)
-    experiment.time = when
     who, transition_kind = transition_id
     if who == 0
         start_the_day(experiment.management, experiment, sampler)
